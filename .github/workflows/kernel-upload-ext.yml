@@ -1,0 +1,42 @@
+name: Kernel extension upload
+
+on:
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install kernel
+      - env:
+          KERNEL_API_KEY: ${{ secrets.KERNEL_API_KEY }}
+        run: |
+          python - <<'EOF'
+          import glob
+          from kernel import Kernel
+
+          client = Kernel()
+
+          try:
+              existing = client.extensions.list()
+              print("EXISTING:", existing)
+          except Exception as e:
+              print("LIST ERROR:", type(e).__name__, e)
+
+          zips = glob.glob("*.zip") + glob.glob("**/*.zip", recursive=True)
+          print("ZIPS FOUND:", zips)
+          if not zips:
+              print("No ZIP found.")
+              raise SystemExit(1)
+
+          path = zips[0]
+          print(f"Uploading {path}...")
+          with open(path, "rb") as f:
+              resp = client.extensions.upload(file=f)
+          print("UPLOAD OK:", resp)
+          EOF
